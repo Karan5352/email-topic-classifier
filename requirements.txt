@@ -1,3 +1,5 @@
-scikit-learn
+scikit-learn>=1.0.2
 flask
-chardet 
+chardet
+numpy>=1.21.0
+pandas>=2.0.0 

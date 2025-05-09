@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-A powerful email topic classifier that uses machine learning to categorize emails into 10 distinct topics. Perfect for organizing your inbox and managing email workflows!
+An intelligent email classification system that categorizes emails into topics using machine learning. The classifier analyzes both email content and sender information to accurately predict email topics.
 
 ## ✨ Features
 
@@ -15,6 +15,7 @@ A powerful email topic classifier that uses machine learning to categorize email
 - 🔧 Easy to extend and customize
 - 📝 Well-documented code
 - 🧪 Includes test suite
+
 
 ## 🎯 Supported Topics
 
@@ -40,22 +41,39 @@ The classifier can categorize emails into these topics:
 
 2. **Set up the environment:**
    ```bash
-   python3 -m venv venv
+   python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
-3. **Train the model:**
+3. **Export emails from Gmail:**
+   ```bash
+   # Install Gmail API dependencies
+   pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+   # Set up Gmail API credentials
+   # 1. Go to Google Cloud Console (https://console.cloud.google.com/)
+   # 2. Create a new project
+   # 3. Enable Gmail API
+   # 4. Create OAuth 2.0 credentials
+   # 5. Download credentials.json to project directory
+
+   # Export emails to .eml files
+   python export_gmail.py --email "your.email@gmail.com" --output "emails"
+   ```
+
+4. **Train the model:**
    ```bash
    python email_topic_classifier.py --train
    ```
 
-4. **Process your emails:**
+5. **Process your emails:**
    ```bash
-   python email_processor.py --input "your_emails" --output "organized_emails"
+   # Process .eml files and organize by topic
+   python email_processor.py --input "emails" --output "organized_emails"
    ```
 
-5. **View the report:**
+6. **View the report:**
    Open `organized_emails/email_report.html` in your browser
 
 ## 📚 Usage Examples
@@ -76,7 +94,7 @@ print(f"Predicted topic: {topic}")
 ### Process Multiple Emails
 ```bash
 # Export emails from Gmail
-python export_gmail.py --email "your.email@gmail.com" --password "your-app-password" --output "emails"
+python export_gmail.py --email "your.email@gmail.com" --output "emails"
 
 # Process and organize them
 python email_processor.py --input "emails" --output "organized_emails"
@@ -120,3 +138,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built with [scikit-learn](https://scikit-learn.org/)
 - Inspired by real-world email organization needs
+- Google Gmail API for email integration
+- All contributors who have helped improve the project
