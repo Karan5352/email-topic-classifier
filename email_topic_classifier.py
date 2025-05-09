@@ -47,7 +47,7 @@ class EmailTopicClassifier:
                 ('text', text_pipeline, 'content'),
                 ('sender', sender_pipeline, 'sender')
             ])),
-            ('classifier', MultinomialNB(alpha=0.1))
+            ('classifier', MultinomialNB(alpha=3.0))
         ])
         
         # Initialize metrics

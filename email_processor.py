@@ -8,7 +8,7 @@ from email.header import decode_header
 import chardet
 
 class EmailProcessor:
-    def __init__(self, model_path="model.pkl"):
+    def __init__(self, model_path="email_classifier.pkl"):
         self.classifier = EmailTopicClassifier()
         if os.path.exists(model_path):
             self.classifier.load(model_path)
