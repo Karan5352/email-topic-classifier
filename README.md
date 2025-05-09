@@ -1,4 +1,4 @@
-# Email Topic Classifier 📧
+# Email Topic Classifier
 
 [![Python Version](https://img.shields.io/badge/python-3.7%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -36,7 +36,7 @@ The classifier can categorize emails into these topics:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/email-topic-classifier.git
+   git clone https://github.com/Karan5352/email-topic-classifier.git
    cd email-topic-classifier
    ```
 
