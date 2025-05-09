@@ -1,1 +1,1 @@
-# email-topic-classifier
+# Email Topic Classifier 📧
