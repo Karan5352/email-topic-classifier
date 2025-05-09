@@ -197,20 +197,63 @@ wheels/
 
 # Virtual Environment
 venv/
-ENV/
 env/
+ENV/
+.env
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+.DS_Store
 
 # Project specific
+email_classifier.pkl
 model.pkl
+*.pkl
+emails/
+organized_emails/
+*.eml
+credentials.json
+token.json
 *.log
 
-*.eml
-emails/
-data/**/*.eml
-*.html
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+
+# pytest
+.pytest_cache/

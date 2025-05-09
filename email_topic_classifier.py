@@ -8,10 +8,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import re
 from sample_data import SAMPLE_EMAILS
-from test_data import TEST_EMAILS
+from test_data import STRAIGHTFORWARD_TESTS, AMBIGUOUS_TESTS, TEST_EMAILS
 
 class EmailTopicClassifier:
     def __init__(self):
@@ -93,11 +93,41 @@ class EmailTopicClassifier:
         
         return text
     
-    def train(self, emails, labels, test_size=0.2, random_state=42):
-        """Train the classifier and evaluate on test set."""
+    def train(self, test_size=0.2, random_state=42):
+        """Train the classifier using the sample data."""
+        # Add example senders to the training data
+        emails_with_senders = []
+        for content, label in SAMPLE_EMAILS:
+            # Generate appropriate sender based on topic
+            if label == "work":
+                sender = "hr@company.com"
+            elif label == "shipping":
+                sender = "shipping@amazon.com"
+            elif label == "finance":
+                sender = "notifications@bank.com"
+            elif label == "travel":
+                sender = "bookings@expedia.com"
+            elif label == "promotions":
+                sender = "offers@store.com"
+            elif label == "social":
+                sender = "notifications@facebook.com"
+            elif label == "updates":
+                sender = "updates@service.com"
+            elif label == "support":
+                sender = "support@company.com"
+            elif label == "spam":
+                sender = "noreply@suspicious.com"
+            elif label == "events":
+                sender = "events@conference.com"
+            else:
+                sender = "unknown@example.com"
+            
+            emails_with_senders.append(((content, sender), label))
+        
         # Split data into training and test sets
         X_train, X_test, y_train, y_test = train_test_split(
-            emails, labels, test_size=test_size, random_state=random_state, stratify=labels
+            emails_with_senders, [label for _, label in emails_with_senders],
+            test_size=test_size, random_state=random_state, stratify=[label for _, label in emails_with_senders]
         )
         
         # Process training data
@@ -169,56 +199,59 @@ class EmailTopicClassifier:
         print("\nTest Set Confusion Matrix:")
         print(self.test_metrics['confusion_matrix'])
         
+        # Save the model
+        self.save("email_classifier.pkl")
+        
         return self.cv_scores.mean(), self.cv_scores.std()
     
-    def evaluate_on_test_data(self, test_emails=None):
-        """Evaluate the model on the separate test dataset."""
-        if test_emails is None:
-            test_emails = TEST_EMAILS
-        
-        # Process test data
-        processed_test = []
-        test_labels = []
-        
-        for email, label in test_emails:
-            if isinstance(email, tuple):
-                content, sender = email
-            else:
-                content = email
-                sender = "unknown"
+    def evaluate_on_test_data(self, test_data=None):
+        """Evaluate the model on test data and print detailed metrics."""
+        if test_data is None:
+            test_data = TEST_EMAILS
             
-            if isinstance(content, tuple):
-                content = content[0]
-            
-            processed_text = self._preprocess_text(content)
-            processed_test.append({
-                'content': processed_text,
-                'sender': sender
-            })
-            test_labels.append(label)
+        # Prepare test data
+        test_texts = [text for text, _ in test_data]
+        test_labels = [label for _, label in test_data]
         
-        X_test_df = pd.DataFrame(processed_test)
+        # Make predictions for all test texts
+        predictions = self.predict(test_texts)
         
-        # Make predictions
-        y_pred = self.pipeline.predict(X_test_df)
+        # Calculate and print metrics
+        print("\nTest Set Evaluation:")
+        print("-" * 50)
+        print(f"Test Accuracy: {accuracy_score(test_labels, predictions):.2%}")
+        print("\nClassification Report:")
+        print(classification_report(test_labels, predictions))
+        print("\nConfusion Matrix:")
+        print(confusion_matrix(test_labels, predictions))
         
-        # Calculate metrics
-        test_metrics = {
-            'classification_report': classification_report(test_labels, y_pred, output_dict=True),
-            'confusion_matrix': confusion_matrix(test_labels, y_pred),
-            'accuracy': (y_pred == test_labels).mean()
+        return accuracy_score(test_labels, predictions)
+
+    def evaluate_all_test_sets(self):
+        """Evaluate the model on both straightforward and ambiguous test sets."""
+        print("\nEvaluating on Straightforward Test Cases:")
+        print("=" * 50)
+        straightforward_accuracy = self.evaluate_on_test_data(STRAIGHTFORWARD_TESTS)
+        
+        print("\nEvaluating on Ambiguous Test Cases:")
+        print("=" * 50)
+        ambiguous_accuracy = self.evaluate_on_test_data(AMBIGUOUS_TESTS)
+        
+        print("\nOverall Test Set Evaluation:")
+        print("=" * 50)
+        overall_accuracy = self.evaluate_on_test_data(TEST_EMAILS)
+        
+        print("\nSummary:")
+        print("-" * 50)
+        print(f"Straightforward Cases Accuracy: {straightforward_accuracy:.2%}")
+        print(f"Ambiguous Cases Accuracy: {ambiguous_accuracy:.2%}")
+        print(f"Overall Test Accuracy: {overall_accuracy:.2%}")
+        
+        return {
+            'straightforward_accuracy': straightforward_accuracy,
+            'ambiguous_accuracy': ambiguous_accuracy,
+            'overall_accuracy': overall_accuracy
         }
-        
-        # Print metrics
-        print("\nTest Dataset Performance:")
-        print(f"Test accuracy: {test_metrics['accuracy']:.2%}")
-        print("\nTest Dataset Classification Report:")
-        print(classification_report(test_labels, y_pred))
-        
-        print("\nTest Dataset Confusion Matrix:")
-        print(test_metrics['confusion_matrix'])
-        
-        return test_metrics
     
     def get_metrics(self):
         """Get the model's performance metrics."""
@@ -231,47 +264,74 @@ class EmailTopicClassifier:
             'test_metrics': self.test_metrics
         }
     
-    def predict(self, email):
-        """Predict the topic of a given email."""
-        # Convert email to the format expected by the pipeline
-        if isinstance(email, tuple):
-            content, sender = email
-        else:
-            content = email
-            sender = "unknown"
+    def predict(self, emails):
+        """Predict the topic(s) of given email(s)."""
+        # Handle both single email and list of emails
+        if isinstance(emails, (str, tuple)):
+            emails = [emails]
+            
+        # Process all emails
+        processed_data = []
+        for email in emails:
+            if isinstance(email, tuple):
+                content, sender = email
+            else:
+                content = email
+                sender = "unknown"
+            
+            # Ensure content is a string
+            if isinstance(content, tuple):
+                content = content[0]
+            
+            processed_data.append({
+                'content': self._preprocess_text(content),
+                'sender': sender
+            })
         
-        # Ensure content is a string
-        if isinstance(content, tuple):
-            content = content[0]
+        # Convert to DataFrame
+        processed_df = pd.DataFrame(processed_data)
         
-        processed_data = pd.DataFrame([{
-            'content': self._preprocess_text(content),
-            'sender': sender
-        }])
+        # Make predictions
+        predictions = self.pipeline.predict(processed_df)
         
-        # Make prediction
-        prediction = self.pipeline.predict(processed_data)[0]
-        return prediction
+        # Return single prediction if input was single email
+        if len(predictions) == 1 and isinstance(emails[0], (str, tuple)):
+            return predictions[0]
+        return predictions
     
-    def predict_proba(self, email):
+    def predict_proba(self, emails):
         """Get probability scores for each topic."""
-        # Convert email to the format expected by the pipeline
-        if isinstance(email, tuple):
-            content, sender = email
-        else:
-            content = email
-            sender = "unknown"
+        # Handle both single email and list of emails
+        if isinstance(emails, (str, tuple)):
+            emails = [emails]
+            
+        # Process all emails
+        processed_data = []
+        for email in emails:
+            if isinstance(email, tuple):
+                content, sender = email
+            else:
+                content = email
+                sender = "unknown"
+            
+            # Ensure content is a string
+            if isinstance(content, tuple):
+                content = content[0]
+            
+            processed_data.append({
+                'content': self._preprocess_text(content),
+                'sender': sender
+            })
         
-        # Ensure content is a string
-        if isinstance(content, tuple):
-            content = content[0]
+        # Convert to DataFrame
+        processed_df = pd.DataFrame(processed_data)
         
-        processed_data = pd.DataFrame([{
-            'content': self._preprocess_text(content),
-            'sender': sender
-        }])
+        # Get probabilities
+        probabilities = self.pipeline.predict_proba(processed_df)
         
-        probabilities = self.pipeline.predict_proba(processed_data)[0]
+        # Return single probability array if input was single email
+        if len(probabilities) == 1 and isinstance(emails[0], (str, tuple)):
+            return probabilities[0]
         return probabilities
     
     def save(self, path="model.pkl"):
@@ -297,84 +357,56 @@ class EmailTopicClassifier:
             self.test_metrics = model_data.get('test_metrics')
 
 def main():
+    """Main function to handle command line arguments and run the classifier."""
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train", action="store_true", help="Train the model")
-    parser.add_argument("--predict", type=str, help="Predict topic for given email text")
-    parser.add_argument("--sender", type=str, help="Sender email address")
-    parser.add_argument("--metrics", action="store_true", help="Show model metrics")
-    parser.add_argument("--test", action="store_true", help="Evaluate on test dataset")
+    
+    parser = argparse.ArgumentParser(description='Email Topic Classifier')
+    parser.add_argument('--train', action='store_true', help='Train the model')
+    parser.add_argument('--predict', type=str, help='Predict topic for given email text')
+    parser.add_argument('--sender', type=str, help='Email sender address for prediction')
+    parser.add_argument('--test', action='store_true', help='Run evaluation on test data')
+    parser.add_argument('--detailed-test', action='store_true', help='Run detailed evaluation on all test sets')
     args = parser.parse_args()
-
-    clf = EmailTopicClassifier()
-
+    
+    classifier = EmailTopicClassifier()
+    
     if args.train:
-        # Add some example senders to the training data
-        emails_with_senders = []
-        for content, label in SAMPLE_EMAILS:
-            # Generate appropriate sender based on topic
-            if label == "work":
-                sender = "hr@company.com"
-            elif label == "shipping":
-                sender = "shipping@amazon.com"
-            elif label == "finance":
-                sender = "notifications@bank.com"
-            elif label == "travel":
-                sender = "bookings@expedia.com"
-            elif label == "promotions":
-                sender = "offers@store.com"
-            elif label == "social":
-                sender = "notifications@facebook.com"
-            elif label == "updates":
-                sender = "updates@service.com"
-            elif label == "support":
-                sender = "support@company.com"
-            elif label == "spam":
-                sender = "noreply@suspicious.com"
-            elif label == "events":
-                sender = "events@conference.com"
-            else:
-                sender = "unknown@example.com"
-            
-            emails_with_senders.append(((content, sender), label))
+        print("Training the model...")
+        classifier.train()
+        print("Model trained and saved successfully!")
         
-        mean_acc, std_acc = clf.train(emails_with_senders, [label for _, label in emails_with_senders])
-        clf.save()
-        print(f"\nModel trained and saved as model.pkl")
-        print(f"Mean accuracy: {mean_acc:.2%} (±{std_acc:.2%})")
-    elif args.test:
-        if not os.path.exists("model.pkl"):
-            print("Model not found. Run with --train first.")
-            return
-        clf.load()
-        clf.evaluate_on_test_data()
     elif args.predict:
-        if not os.path.exists("model.pkl"):
-            print("Model not found. Run with --train first.")
+        if not os.path.exists('email_classifier.pkl'):
+            print("Error: Model not found. Please train the model first using --train")
             return
-        clf.load()
-        email = (args.predict, args.sender if args.sender else "unknown")
-        topic = clf.predict(email)
-        print(f"Predicted topic: {topic}")
-    elif args.metrics:
-        if not os.path.exists("model.pkl"):
-            print("Model not found. Run with --train first.")
+            
+        classifier.load('email_classifier.pkl')
+        prediction = classifier.predict((args.predict, args.sender if args.sender else "unknown"))
+        probabilities = classifier.predict_proba((args.predict, args.sender if args.sender else "unknown"))
+        
+        print(f"\nPredicted Topic: {prediction}")
+        print("\nProbabilities for each topic:")
+        for topic, prob in zip(classifier.pipeline.classes_, probabilities):
+            print(f"{topic}: {prob:.2%}")
+            
+    elif args.test:
+        if not os.path.exists('email_classifier.pkl'):
+            print("Error: Model not found. Please train the model first using --train")
             return
-        clf.load()
-        metrics = clf.get_metrics()
-        print("\nModel Performance Metrics:")
-        print(f"Mean CV accuracy: {metrics['mean_accuracy']:.2%} (±{metrics['std_accuracy']:.2%})")
-        if metrics['test_metrics']:
-            print(f"\nTest accuracy: {metrics['test_metrics']['accuracy']:.2%}")
-        print("\nPer-class metrics:")
-        for label, scores in metrics['classification_metrics'].items():
-            if isinstance(scores, dict):
-                print(f"\n{label}:")
-                print(f"  Precision: {scores['precision']:.2%}")
-                print(f"  Recall: {scores['recall']:.2%}")
-                print(f"  F1-score: {scores['f1-score']:.2%}")
+            
+        classifier.load('email_classifier.pkl')
+        classifier.evaluate_on_test_data()
+        
+    elif args.detailed_test:
+        if not os.path.exists('email_classifier.pkl'):
+            print("Error: Model not found. Please train the model first using --train")
+            return
+            
+        classifier.load('email_classifier.pkl')
+        metrics = classifier.evaluate_all_test_sets()
+        
     else:
         parser.print_help()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 
